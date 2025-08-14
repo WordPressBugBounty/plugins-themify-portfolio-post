@@ -559,7 +559,7 @@ class Themify_Metabox {
 		$response['msg'] = __( 'Oopsss ... .Something went wrong.', 'themify' );
 		if ( isset( $_FILES['file'] ) ) {
 			$fileContent = themify_get_file_contents( $_FILES['file']['tmp_name'] );
-			$new_data = unserialize( $fileContent );
+			$new_data = unserialize( $fileContent , ['allowed_classes' => false] );
 			if ( $new_data !== null ) {
 				if ( 'colors' === $_POST['type'] ) {
 					$type = 'colors';

@@ -1,7 +1,7 @@
 <?php
 /*
 Plugin Name:  Themify Portfolio Post
-Version:      1.2.9
+Version:      1.3.0
 Author:       Themify
 Author URI:   https://themify.me
 Description:  This plugin will add Portfolio post type.
@@ -38,7 +38,7 @@ defined( 'ABSPATH' ) or die;
 function themify_portfolio_post_setup() {
 	global $themify_portfolio_posts;
 	if(!defined('THEMIFY_PORTFOLIO_POST_VERSION')){
-	    define( 'THEMIFY_PORTFOLIO_POST_VERSION', '1.2.9' );
+	    define( 'THEMIFY_PORTFOLIO_POST_VERSION', '1.3.0' );
 	}
 	if( ! defined( 'THEMIFY_PORTFOLIO_POST_DIR' ) ){
 		define( 'THEMIFY_PORTFOLIO_POST_DIR', plugin_dir_path( __FILE__ ) );
