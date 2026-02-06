@@ -60,7 +60,7 @@ if ( is_object( $post ) )
 				<div class="entry-content">
 
 					<?php if ( $atts['display'] === 'content' ) : ?>
-						<?php the_content( $atts['more_text'] ); ?>
+						<?php the_content( wp_kses_post( $atts['more_text'] ) ); ?>
 					<?php elseif ( $atts['display'] === 'none' ) : ?>
 						<!-- display: none -->
 					<?php else : ?>
