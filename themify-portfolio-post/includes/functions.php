@@ -160,9 +160,9 @@ function tpp_get_image( $args ) {
 	if ( $args['image_meta'] == true ) {
 		$out .= "<meta itemprop=\"width\" content=\"{$width}\">";
 		$out .= "<meta itemprop=\"height\" content=\"{$height}\">";
-		$out .= "<meta itemprop=\"url\" content=\"{$img_url}\">";
+		$out .= "<meta itemprop=\"url\" content=\"" . esc_url( $img_url ) . "\">";
 	}
-	$out .= "<img src=\"{$img_url}\"";
+	$out .= "<img src=\"" . esc_url( $img_url ) . "\"";
 	if ( $width ) {
 		$out .= " width=\"{$width}\"";
 	}

@@ -87,7 +87,7 @@ class Themify_Portfolio_Posts_Admin {
 			get_taxonomy($tax)->label );
 			$class = is_taxonomy_hierarchical( $tax ) ? ' class="level-0"' : '';
 			foreach ( get_terms( $tax ) as $taxon ) {
-				$options .= sprintf( '<option %s%s value="%s">%s%s</option>', isset( $_GET[$tax] ) ? selected( $taxon->slug, $_GET[$tax], false ) : '', '0' !== $taxon->parent ? ' class="level-1"' : $class, $taxon->slug, '0' !== $taxon->parent ? str_repeat( '&nbsp;', 3 ) : '', "{$taxon->name} ({$taxon->count})" );
+				$options .= sprintf( '<option %s%s value="%s">%s%s</option>', isset( $_GET[$tax] ) ? selected( $taxon->slug, sanitize_text_field( wp_unslash( $_GET[$tax] ) ), false ) : '', '0' !== $taxon->parent ? ' class="level-1"' : $class, esc_attr( $taxon->slug ), '0' !== $taxon->parent ? str_repeat( '&nbsp;', 3 ) : '', esc_html( "{$taxon->name} ({$taxon->count})" ) );
 			}
 			$html .= sprintf( '<select name="%s" id="%s" class="postform">%s</select>', esc_attr( $tax ), esc_attr( $tax ), $options );
 		}
@@ -154,6 +154,9 @@ class Themify_Portfolio_Posts_Admin {
 	}
 
 	function attachment_fields_to_save( $attachment_id ) {
+		if ( ! current_user_can( 'edit_post', $attachment_id ) ) {
+			return;
+		}
 		if( isset( $_REQUEST['attachments'][$attachment_id]['themify_gallery_featured'] ) && preg_match( '!^image/!', get_post_mime_type( $attachment_id ) ) ) {
 			update_post_meta($attachment_id, 'themify_gallery_featured', 'featured');
 		} else {

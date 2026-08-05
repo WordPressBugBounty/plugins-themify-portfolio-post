@@ -9,6 +9,8 @@ add_action( 'wp_ajax_themify_metabox_media_lib_browse', 'themify_metabox_media_l
 add_action( 'wp_ajax_themify_plupload', 'themify_wp_ajax_plupload_image' );
 add_action( 'wp_ajax_themify_create_inner_popup_page', 'themify_ajax_create_inner_page' );
 add_action( 'wp_ajax_themify_create_popup_page_pagination', 'themify_ajax_create_page_pagination' );
+add_action( 'wp_ajax_themify_remove_video', 'themify_ajax_remove_media' );
+add_action( 'wp_ajax_themify_remove_audio', 'themify_ajax_remove_media' );
 
 function themify_meta_field_image( $args ) {
 	extract( $args, EXTR_OVERWRITE );
@@ -735,6 +737,10 @@ function themify_meta_field_get_description( $desc = '' ) {
 }
 
 function themify_ajax_create_page_pagination() {
+	check_ajax_referer( 'tf_nonce', 'nonce' );
+	if ( ! current_user_can( 'edit_posts' ) ) {
+		wp_die( -1 );
+	}
 	$current_page = isset( $_POST['current_page'] ) ? (int) $_POST['current_page'] : 1;
 	$num_of_pages = isset( $_POST['num_of_pages'] ) ? (int) $_POST['num_of_pages'] : 0;
 	echo themify_create_page_pagination($current_page, $num_of_pages);
@@ -795,9 +801,16 @@ function themify_create_page_pagination( $current_page, $num_of_pages ) {
 }
 
 function themify_ajax_create_inner_page() {
+	check_ajax_referer( 'tf_nonce', 'nonce' );
+	if ( ! current_user_can( 'edit_posts' ) ) {
+		wp_die( -1 );
+	}
     $selected = array();
 	if ( isset( $_POST['post_id'] ) ) {
 		$post_id = (int) $_POST['post_id'];
+		if ( ! current_user_can( 'edit_post', $post_id ) ) {
+			wp_die( -1 );
+		}
 		$selected = get_post_meta( $post_id, 'popup_show', TRUE );
 	}
 	$type= isset( $_POST['type'] ) ? sanitize_text_field( $_POST['type'] ) : 'pages';
@@ -833,7 +846,7 @@ function themify_create_inner_page( $type, $selected ) {
 					}
 					$checked = isset( $selected['post_type'][ $key ][ $post->post_name ] ) ? checked( $selected['post_type'][ $key ][ $post->post_name ], 'on', false ) : '';
 					/* note: slugs are more reliable than IDs, they stay unique after export/import */
-					$output .= '<label><input type="checkbox" data-name="popup_show[post_type][' . $key . '][' . $post->post_name . ']"' . $checked . ' />' . $post->post_title . '</label>';
+					$output .= '<label><input type="checkbox" data-name="popup_show[post_type][' . esc_attr( $key ) . '][' . esc_attr( $post->post_name ) . ']"' . $checked . ' />' . esc_html( $post->post_title ) . '</label>';
 					if ( $i === ($page_id * $posts_per_page) ) {
 						$output .= '</div>';
 						$page_id++;
@@ -863,7 +876,7 @@ function themify_create_inner_page( $type, $selected ) {
 				$output              .= '<div class="themify-assignment-items-page themify-assignment-items-page-' . $page_id . '">';
 				foreach ( $terms as $term ) :
 					$checked = isset( $selected['tax'][ $key ][ $term->slug ] ) ? checked( $selected['tax'][ $key ][ $term->slug ], 'on', false ) : '';
-					$output  .= '<label><input type="checkbox" data-name="popup_show[tax][' . $key . '][' . $term->slug . ']" ' . $checked . ' />' . $term->name . '</label>';
+					$output  .= '<label><input type="checkbox" data-name="popup_show[tax][' . esc_attr( $key ) . '][' . esc_attr( $term->slug ) . ']" ' . $checked . ' />' . esc_html( $term->name ) . '</label>';
 					if ( $i === ( $page_id * $posts_per_page ) ) {
 						$output .= '</div>';
 						$page_id ++;
@@ -893,7 +906,7 @@ function themify_create_inner_page( $type, $selected ) {
 				$output              .= '<div class="themify-assignment-items-page themify-assignment-items-page-' . $page_id . '">';
 				foreach ( $terms as $term ) :
 					$checked = isset( $selected['tax'][ $key ][ $term->slug ] ) ? checked( $selected['tax'][ $key ][ $term->slug ], 'on', false ) : '';
-					$output  .= '<label><input type="checkbox" data-name="popup_show[tax][' . $key . '][' . $term->slug . ']" ' . $checked . ' />' . $term->name . '</label>';
+					$output  .= '<label><input type="checkbox" data-name="popup_show[tax][' . esc_attr( $key ) . '][' . esc_attr( $term->slug ) . ']" ' . $checked . ' />' . esc_html( $term->name ) . '</label>';
 					if ( $i === ( $page_id * $posts_per_page ) ) {
 						$output .= '</div>';
 						$page_id ++;
@@ -1222,16 +1235,21 @@ function themify_uploader($id = '', $args = array()){
 }
 
 function themify_wp_ajax_plupload_image() {
-	$imgid = (int) $_POST['imgid'];
-	! empty( $_POST[ '_ajax_nonce' ] ) && check_ajax_referer($imgid . 'themify-plupload');
+	$imgid = isset( $_POST['imgid'] ) ? (int) $_POST['imgid'] : 0;
+	if ( ! $imgid || ! isset( $_POST['_ajax_nonce'] ) || ! wp_verify_nonce( $_POST['_ajax_nonce'], $imgid . 'themify-plupload' ) ) {
+		wp_die( -1 );
+	}
 	if( ! current_user_can( 'upload_files' ) ) {
-		die;
+		wp_die( -1 );
 	}
 
 	/** Decide whether to send this image to Media. @var String */
 	$add_to_media_library = isset( $_POST['tomedia'] ) ? sanitize_text_field( $_POST['tomedia'] ) : false;
 	/** If post ID is set, uploaded image will be attached to it. @var String */
 	$postid = isset( $_POST['topost'] )? (int) $_POST['topost'] : '';
+	if ( $postid && ! current_user_can( 'edit_post', $postid ) ) {
+		wp_die( -1 );
+	}
  
 	/** Handle file upload storing file|url|type. @var Array */
 	$file = wp_handle_upload($_FILES[$imgid . 'async-upload'], array('test_form' => true, 'action' => 'themify_plupload'));
@@ -1291,14 +1309,20 @@ function themify_wp_ajax_plupload_image() {
  * @todo: remove this
  */
 function themify_metabox_media_lib_browse() {
-	if ( ! wp_verify_nonce( $_POST['media_lib_nonce'], 'media_lib_nonce' ) ) die(-1);
+	if ( ! isset( $_POST['media_lib_nonce'] ) || ! wp_verify_nonce( $_POST['media_lib_nonce'], 'media_lib_nonce' ) ) {
+		wp_die( -1 );
+	}
 	if( ! current_user_can( 'upload_files' ) ) {
-		die;
+		wp_die( -1 );
 	}
 
 	$file = array();
 	$postid = (int) $_POST['post_id'];
 	$attach_id = (int) $_POST['attach_id'];
+
+	if ( ! $postid || ! current_user_can( 'edit_post', $postid ) ) {
+		wp_die( -1 );
+	}
 
 	$full = wp_get_attachment_image_src( $attach_id, 'full' );
 	update_post_meta($postid, sanitize_text_field( $_POST['field_name'] ), $full[0]);
@@ -1584,4 +1608,21 @@ function themify_meta_field_hidden( $args ) {
 		esc_attr( $args['meta_box']['name'] ), esc_attr( $args['meta_box']['name'] ), esc_attr( $meta_value ) );
 
 	echo $html;
+}
+
+/**
+ * Remove uploaded media from a post meta field via AJAX.
+ */
+function themify_ajax_remove_media() {
+	check_ajax_referer( 'tf_nonce', 'nonce' );
+	$postid = isset( $_POST['postid'] ) ? (int) $_POST['postid'] : 0;
+	$customfield = isset( $_POST['customfield'] ) ? sanitize_text_field( wp_unslash( $_POST['customfield'] ) ) : '';
+
+	if ( ! $postid || ! $customfield || ! preg_match( '/^[a-zA-Z0-9_\-]+$/', $customfield ) || ! current_user_can( 'edit_post', $postid ) ) {
+		wp_die( -1 );
+	}
+
+	delete_post_meta( $postid, $customfield );
+	delete_post_meta( $postid, '_' . $customfield . '_attach_id' );
+	wp_die();
 }

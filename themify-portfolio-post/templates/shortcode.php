@@ -15,7 +15,7 @@ if ( is_object( $post ) )
 	$saved_post = clone $post;
 ?>
 
-<script type="text/javascript">if ( ! document.getElementById( "tpp-styles" ) ) document.getElementsByTagName( "head" )[0].innerHTML += "<link id='tpp-styles' rel='stylesheet' href='<?php echo $this->url . 'assets/styles.css'; ?>' type='text/css' />";</script>
+<script type="text/javascript">if ( ! document.getElementById( "tpp-styles" ) ) document.getElementsByTagName( "head" )[0].innerHTML += "<link id='tpp-styles' rel='stylesheet' href='<?php echo esc_url( $this->url . 'assets/styles.css' ); ?>' type='text/css' />";</script>
 
 <div class="tpp-loop <?php echo esc_attr( $atts['style'] ); ?>">
 

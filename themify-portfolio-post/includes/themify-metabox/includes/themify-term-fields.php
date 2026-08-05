@@ -170,6 +170,11 @@ class Themify_Term_Meta {
 	 * Save custom fields when a term is edited
 	 */
 	function save_fields( $term_id, $taxonomy_term_id, $taxonomy ) {
+		$tax_obj = get_taxonomy( $taxonomy );
+		if ( ! $tax_obj || ! current_user_can( $tax_obj->cap->edit_terms ) ) {
+			return false;
+		}
+
 		$fields = $this->get_fields( $taxonomy );
 		if ( empty( $fields ) ) {
 			return false;
@@ -191,6 +196,7 @@ class Themify_Term_Meta {
 				}
 
 				if ( $new_meta !== '' && $new_meta != $old_meta ) {
+					$new_meta = themify_metabox_sanitize_field_value( $field, $new_meta );
 					update_term_meta( $term_id, $field['name'], $new_meta );
 				}
 			}

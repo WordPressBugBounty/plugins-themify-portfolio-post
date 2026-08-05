@@ -157,10 +157,20 @@ class Themify_Metabox {
 
 		if ( ! isset( $_POST['post_type'] ) || ('page' === $_POST['post_type'] && ! current_user_can( 'edit_page', $post_id )) || ('page' !== $_POST['post_type'] && ! current_user_can( 'edit_post', $post_id ))) {
 			return $post_id;
-		} 
+		}
 
-		if( !empty( $_POST['themify_proper_save'] )) {
-			foreach( $this->get_meta_boxes() as $meta_box ) {
+		if ( empty( $_POST['themify_proper_save'] ) ) {
+			if ( isset( $post ) && isset( $post->ID ) ) {
+				return $post->ID;
+			}
+			return false;
+		}
+
+		if ( ! isset( $_POST['themify_metabox_nonce'] ) || ! wp_verify_nonce( $_POST['themify_metabox_nonce'], 'themify_metabox_save' ) ) {
+			return $post_id;
+		}
+
+		foreach( $this->get_meta_boxes() as $meta_box ) {
 				$tabs = $this->get_meta_box_options( $meta_box['id'], $_POST['post_type'] );
 				if( empty( $tabs ) )
 					continue;
@@ -189,11 +199,6 @@ class Themify_Metabox {
 					}
 				}
 			}
-		} else {
-			if ( isset( $post ) && isset( $post->ID ) ) {
-				return $post->ID;
-			}
-		}
 		return false;
 	}
 
@@ -221,10 +226,7 @@ class Themify_Metabox {
 			return;
 		}
 		
-		/* sanitization */
-		if (isset( $field['type'] ) && ($field['type'] === 'textbox' || $field['type'] === 'textarea' ) && ! current_user_can( 'unfiltered_html' )) {
-			$new_meta = wp_kses_data( $new_meta );
-		}
+		$new_meta = themify_metabox_sanitize_field_value( $field, $new_meta );
 		
 		$old_meta = get_post_meta( $post_id, $field['name'], true );
 		if ( $new_meta !== '' && $new_meta != $old_meta ) {
@@ -284,6 +286,7 @@ class Themify_Metabox {
 				<div class="inside">
 
 					<input type="hidden" name="themify_proper_save" value="true" />
+					<input type="hidden" name="themify_metabox_nonce" value="<?php echo esc_attr( wp_create_nonce( 'themify_metabox_save' ) ); ?>" />
 
 					<?php $themify_custom_panel_nonce = wp_create_nonce('tf_nonce'); ?>
 
@@ -493,6 +496,7 @@ class Themify_Metabox {
 		wp_localize_script( 'themify-metabox', 'TF_Metabox', array(
 			'url' => THEMIFY_METABOX_URI,
 			'includes_url' => includes_url(),
+			'nonce' => wp_create_nonce( 'tf_nonce' ),
 		) );
 
 		do_action( 'themify_metabox_register_assets' );
@@ -555,20 +559,22 @@ class Themify_Metabox {
 	 */
 	function themify_import_colors() {
 		check_ajax_referer('tf_nonce', 'nonce');
+		if ( ! current_user_can( 'edit_theme_options' ) ) {
+			wp_send_json_error( array( 'msg' => __( 'Permission denied.', 'themify' ) ) );
+		}
 		$response['status'] = 'ERROR';
 		$response['msg'] = __( 'Oopsss ... .Something went wrong.', 'themify' );
 		if ( isset( $_FILES['file'] ) ) {
 			$fileContent = themify_get_file_contents( $_FILES['file']['tmp_name'] );
 			$new_data = unserialize( $fileContent , ['allowed_classes' => false] );
 			if ( $new_data !== null ) {
-				if ( 'colors' === $_POST['type'] ) {
-					$type = 'colors';
-				} elseif ( 'gradients' === $_POST['type'] ) {
-					$type = 'gradients';
+				$type = isset( $_POST['type'] ) ? sanitize_key( $_POST['type'] ) : '';
+				if ( ! in_array( $type, array( 'colors', 'gradients' ), true ) ) {
+					wp_send_json( $response );
 				}
 				$end = end( $new_data );
-				$end=!empty($end['uid']);
-				if ( ($end===true && 'colors' === $type) || ( $end===false && 'gradients' === $type ) ) {
+				$end = ! empty( $end['uid'] );
+				if ( ( $end === true && 'colors' === $type ) || ( $end === false && 'gradients' === $type ) ) {
 					$currentSwatches = unserialize( get_option( 'themify_saved_' . $type, serialize( array() ) ) );
 					$new_data = $currentSwatches + $new_data;
 					$new_data = !empty($new_data) && is_array($new_data) ? $new_data : array();
@@ -595,7 +601,13 @@ class Themify_Metabox {
 	 */
 	function themify_save_colors() {
 		check_ajax_referer('tf_nonce', 'nonce');
-		$type = $_POST['type'];
+		if ( ! current_user_can( 'edit_theme_options' ) ) {
+			wp_send_json_error( array( 'msg' => __( 'Permission denied.', 'themify' ) ) );
+		}
+		$type = isset( $_POST['type'] ) ? sanitize_key( $_POST['type'] ) : '';
+		if ( ! in_array( $type, array( 'colors', 'gradients' ), true ) ) {
+			wp_send_json_error( array( 'msg' => __( 'Invalid type.', 'themify' ) ) );
+		}
 		$colors = !empty( $_POST['colors'] ) && is_array($_POST['colors']) ? serialize( $_POST['colors'] ) : serialize( array() );
 		$_key='themify_saved_' . $type;
 		delete_option($_key);
@@ -661,7 +673,7 @@ class Themify_Metabox {
 	 * @since 4.5
 	 */
 	function themify_export_colors() {
-		if ( ( !empty( $_GET['themify_export_colors'] ) || !empty( $_GET['themify_export_gradients'] ) ) && is_user_logged_in() && check_admin_referer( 'themify_export_colors_nonce' ) ) {
+		if ( ( !empty( $_GET['themify_export_colors'] ) || !empty( $_GET['themify_export_gradients'] ) ) && current_user_can( 'edit_theme_options' ) && check_admin_referer( 'themify_export_colors_nonce' ) ) {
 			if ( ini_get( 'zlib.output_compression' ) ) {
 				ini_set( 'zlib.output_compression', 'Off' );
 			}
@@ -725,17 +737,25 @@ class Themify_Metabox {
      * Add meta options menu
      */
     function load_meta_options() {
+        $post_id = isset( $_GET['tf-meta-opts'] ) ? absint( $_GET['tf-meta-opts'] ) : 0;
+        if ( ! $post_id || ! current_user_can( 'edit_post', $post_id ) ) {
+            wp_die( esc_html__( 'You do not have permission to edit this item.', 'themify' ) );
+        }
         add_filter( 'use_block_editor_for_post', '__return_false' );
         remove_action( 'in_admin_header', 'wp_admin_bar_render', 0);
         add_filter('screen_options_show_screen', '__return_false');
-        $post_type = get_post_type($_GET['tf-meta-opts']);
+        $post_type = get_post_type( $post_id );
         remove_post_type_support($post_type, 'editor');
         remove_post_type_support($post_type, 'title');
         remove_post_type_support($post_type, 'revisions');
     }
 
     function remove_extra_meta_boxes() {
-        $post_type = get_post_type($_GET['tf-meta-opts']);
+        $post_id = isset( $_GET['tf-meta-opts'] ) ? absint( $_GET['tf-meta-opts'] ) : 0;
+        $post_type = $post_id ? get_post_type( $post_id ) : '';
+        if ( ! $post_type ) {
+            return;
+        }
         global $wp_meta_boxes;
         $comments = isset( $wp_meta_boxes[$post_type]['normal']['core']['commentstatusdiv'] ) ? $wp_meta_boxes[$post_type]['normal']['core']['commentstatusdiv'] : null;
         $wp_meta_boxes = array($post_type=> array(

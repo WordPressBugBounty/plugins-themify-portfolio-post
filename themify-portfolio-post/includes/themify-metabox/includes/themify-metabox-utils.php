@@ -154,7 +154,7 @@ function themify_array_to_input( $array, $prefix = '' ) {
 			if ( is_array( $value ) ) {
 				$output .= themify_array_to_input( $value, $name );
 			} else {
-				$output .= '<input type="hidden" value="' . $value .'" name="' . $name .'">';
+				$output .= '<input type="hidden" value="' . esc_attr( $value ) . '" name="' . esc_attr( $name ) . '">';
 			}
 		}
 	} else {
@@ -162,13 +162,79 @@ function themify_array_to_input( $array, $prefix = '' ) {
 			if ( is_array($item) ) {
 				$output .= themify_array_to_input( $item, $prefix . '[]' );
 			} else {
-				$output .= '<input type="hidden" name="' . $prefix . '[]" value="' . $item .'">';
+				$output .= '<input type="hidden" name="' . esc_attr( $prefix ) . '[]" value="' . esc_attr( $item ) . '">';
 			}
 		}
 	}
 
 	return $output;
 }
+
+/**
+ * Sanitize a metabox field value based on its type.
+ *
+ * @param array       $field Field definition.
+ * @param mixed       $value Raw submitted value.
+ * @return mixed Sanitized value.
+ */
+function themify_metabox_sanitize_field_value( $field, $value ) {
+	if ( is_array( $value ) ) {
+		$sanitized = array();
+		foreach ( $value as $key => $item ) {
+			$sanitized[ is_string( $key ) ? sanitize_key( $key ) : $key ] = is_array( $item )
+				? themify_metabox_sanitize_field_value( $field, $item )
+				: sanitize_text_field( $item );
+		}
+		return $sanitized;
+	}
+
+	$type = isset( $field['type'] ) ? $field['type'] : 'textbox';
+
+	switch ( $type ) {
+		case 'textarea':
+			return current_user_can( 'unfiltered_html' ) ? $value : wp_kses_data( $value );
+		case 'textbox':
+			return current_user_can( 'unfiltered_html' ) ? sanitize_text_field( $value ) : wp_kses_data( $value );
+		case 'color':
+			$color = sanitize_hex_color( $value );
+			return $color ? $color : sanitize_text_field( $value );
+		case 'image':
+		case 'audio':
+		case 'video':
+		case 'font':
+			return esc_url_raw( $value );
+		case 'checkbox':
+			return 'on' === $value ? 'on' : '';
+		case 'hidden':
+		case 'date':
+		case 'dropdown':
+		case 'dropdownbutton':
+		case 'radio':
+		case 'layout':
+		case 'image_radio':
+		case 'gallery_shortcode':
+		case 'query_category':
+			return sanitize_text_field( $value );
+		default:
+			return is_string( $value ) ? sanitize_text_field( $value ) : $value;
+	}
+}
+
+if ( ! function_exists( 'themify_get_file_contents' ) ) :
+/**
+ * Safely read an uploaded file's contents.
+ *
+ * @param string $file Path to uploaded temp file.
+ * @return string File contents or empty string on failure.
+ */
+function themify_get_file_contents( $file ) {
+	if ( ! is_string( $file ) || '' === $file || ! is_uploaded_file( $file ) || ! is_readable( $file ) ) {
+		return '';
+	}
+	$contents = file_get_contents( $file );
+	return false !== $contents ? $contents : '';
+}
+endif;
 
 /**
  * Checks if Woocommerce plugin is active and returns the proper value

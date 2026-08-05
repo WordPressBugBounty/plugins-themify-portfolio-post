@@ -131,7 +131,7 @@ class Themify_User_Meta {
 		foreach( $groups as $group ) {
 			foreach( $group['fields'] as $field ) {
 				if( isset( $_POST[$field['name']] ) ) {
-					update_user_meta( $user_id, $field['name'], $_POST[$field['name']] );
+					update_user_meta( $user_id, $field['name'], themify_metabox_sanitize_field_value( $field, $_POST[$field['name']] ) );
 				}
 			}
 		}

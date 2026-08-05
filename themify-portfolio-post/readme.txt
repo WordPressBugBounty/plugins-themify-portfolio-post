@@ -3,8 +3,8 @@ Contributors: themifyme
 Plugin Name: Themify Portfolio Post
 Tags: portfolio, post, showcase, post-type
 Requires at least: 5.2
-Tested up to: 7.0.0
-Stable tag: 1.3.2
+Tested up to: 7.0.2
+Stable tag: 1.3.3
 License: GPL v2
 License URI: https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
 
